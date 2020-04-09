@@ -1,4 +1,4 @@
-import net, asyncdispatch, asyncnet, strutils, lists, strformat
+import net, asyncdispatch, asyncnet, strutils, uri, strformat
 
 type ProxyServerOptions* = object
     listenAddr*: string
@@ -39,17 +39,24 @@ proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
     result.add(data) 
         # if data.len == 0:
         #     break
+proc getPort(uri: Uri): int16 = 
+    if uri.port == "": 
+        result = 80
+    else:
+        result = (int16) parseInt(uri.port)
+
 
 proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
     proc clientHasData() {.async.} =
         var s = newAsyncSocket()
         var data = await readDataFromSocket(client)
-        let line = data.split("\n")[0]
+        let uri = parseUri data.split("\n")[0].split(" ")[1]
         echo "got data:" & data
 
 
-        let webserver = parseAdress(line)
-        let port = parsePort(line)
+        let webserver = uri.hostname 
+        echo uri
+        let port = getPort(uri)
         echo webserver
         echo port
         await s.connect(webserver, Port(port))
@@ -60,6 +67,7 @@ proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
 
         while true:
             let data = await s.recv(1024)
+            echo data
             if data.len > 0:
                 await client.send(data)
             else:
