@@ -23,7 +23,7 @@ os.system("nim c -d:ssl --debugger:native src/main.nim")
 if platform == "linux" or platform == "linux2":
     os.system(f"mv src/main {debug_path}")
 elif platform == "win32":
-    os.system(f"move src/main.exe {debug_path}")
+    os.system(f"move src\main.exe {debug_path}")
 else: 
     print("Can't detect os.")
 print("Success!")
@@ -35,7 +35,7 @@ os.system("nim c -d:ssl -d:release src/main.nim")
 if platform == "linux" or platform == "linux2":
     os.system(f"mv src/main {release_path}")
 elif platform == "win32":
-    os.system(f"move src/main.exe {release_path}")
+    os.system(f"move src\main.exe {release_path}")
 else: 
     print("Can't detect os.")
 print("Success!")
