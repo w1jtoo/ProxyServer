@@ -13,12 +13,12 @@ when isMainModule:
     
     proc cb(req: Request) {.async.} =
         var client = newHttpClient()
-        echo req.headers["host"]
+        echo req.url
         echo $req.reqMethod
-        let response = client.request("http://" & req.headers["host"], $req.reqMethod)
+        let response = client.request($req.url, $req.reqMethod)
         echo response.body
         echo response.headers
-        await req.respond(Http200, $response.headers)
+        await req.respond(Http200, response.body)
 
     var server = newAsyncHttpServer() 
     
