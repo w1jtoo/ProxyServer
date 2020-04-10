@@ -18,7 +18,7 @@ if not os.path.exists(debug_path):
 
 # DEBUG FILE COMPILING 
 print("Building debug ...")
-os.system("nim c --debugger:native src/main.nim")
+os.system("nim c -d:ssl --debugger:native src/main.nim")
 
 if platform == "linux" or platform == "linux2":
     os.system(f"mv src/main {debug_path}")
@@ -30,7 +30,7 @@ print("Success!")
 
 # RELEASE FILE COMPILING 
 print("Building release ...")
-os.system("nim c -d:release src/main.nim")
+os.system("nim c -d:ssl -d:release src/main.nim")
 
 if platform == "linux" or platform == "linux2":
     os.system(f"mv src/main {release_path}")
