@@ -1,4 +1,5 @@
-import net, asyncdispatch, asyncnet, strutils, uri, strformat
+import asyncdispatch, asyncnet, strutils, uri, strformat
+import net, httprequets
 
 type ProxyServerOptions* = object
     listenAddr*: string
@@ -35,57 +36,59 @@ proc parseAdress*(line: string): string =
         result = result[0..^2]
 
 proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
-    let data = await socket.recv(1024)
+    ## Reads socket stored data into one string  
+    var data = await socket.recv(512)
     result.add(data) 
-        # if data.len == 0:
-        #     break
-proc getPort(uri: Uri): int16 = 
-    if uri.port == "": 
-        result = 80
+    while data.len == 512:
+        data = await socket.recv(512)
+        result.add(data) 
+
+
+proc processConnectMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
+    echo "can't parse packet" 
+
+proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
+    if request.httpMethod == "CONNECT":
+        await processConnectMethod(data, request, client)
     else:
-        result = (int16) parseInt(uri.port)
+        let socket = newAsyncSocket(buffered=false)
+        
+        var port = Port(8080)
+        if request.host.port != "":
+            port = Port((int16) parseInt(request.host.port))
+        
+        echo "http://" & $request.host
+        await socket.connect($request.host, port)
+        await socket.send(data)
+        let response = await readDataFromSocket(socket)
+        await client.send(response)
+        socket.close()
 
 
 proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
     proc clientHasData() {.async.} =
-        var s = newAsyncSocket()
-        var data = await readDataFromSocket(client)
-        let uri = parseUri data.split("\n")[0].split(" ")[1]
-        echo "got data:" & data
-
-
-        let webserver = uri.hostname 
-        echo uri
-        let port = getPort(uri)
-        echo webserver
-        echo port
-        await s.connect(webserver, Port(port))
+        # read data from client socket 
+        let data = await readDataFromSocket(client)
+        var request = newRequest()
+        try: 
+            request = parseRequest(data)
+        except:
+            echo "can't parse packet" 
         
-        await s.send(data)
-
-        echo fmt"sent data to {webserver} with port {port}"
-
-        while true:
-            let data = await s.recv(1024)
-            echo data
-            if data.len > 0:
-                await client.send(data)
-            else:
-                break
-
-            # await client.send(response)
-        s.close()
+        await processHttpMethod(data, request, client)
         client.close()
 
-
     try:
+        echo "Got connection"
         asyncCheck clientHasData()
     except:
         echo getCurrentExceptionMsg()
+    finally: 
+        echo "Connection closed"
 
 
 proc serve*(this: ref ProxyServer) {.async.} =
-    var server = newAsyncSocket(buffered=true)
+    var server = newAsyncSocket(buffered=false)
     server.setSockOpt(OptReuseAddr, true)
     server.bindAddr(this.options.listenPort, this.options.listenAddr)
     echo fmt"Started proxy server {this.options.listenAddr}:{this.options.listenPort} "
@@ -93,5 +96,4 @@ proc serve*(this: ref ProxyServer) {.async.} =
 
     while true:
         let client = await server.accept()
-        echo "Got connection"
         asyncCheck this.processClient(client)
