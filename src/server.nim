@@ -45,26 +45,32 @@ proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
         result.add(data) 
 
 
-proc processConnectMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
+proc processConnectMethod(data: string, client: AsyncSocket, sendClient: AsyncSocket) {.async.} =
     echo "can't process CONNECT method" 
 
 proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
+    var port = Port(80) # default port due to RFC is 80
+    if request.host.port != "":
+        port = Port((int16) parseInt(request.host.port))
+
+    let socket = newAsyncSocket(buffered=false)
+    echo "http://" & $request.host
+    await socket.connect($request.host, port)
+    
     if request.httpMethod == "CONNECT":
-        await processConnectMethod(data, request, client)
+        await client.send("200 OK")
+        while not socket.isClosed and not client.isClosed:
+            let conectData = await readDataFromSocket(client)
+            await socket.send(conectData)
+            let response = await readDataFromSocket(socket)
+            await client.send(response)
     else:
-        let socket = newAsyncSocket(buffered=false)
-        
-        var port = Port(80)
-        if request.host.port != "":
-            port = Port((int16) parseInt(request.host.port))
-        
-        echo "http://" & $request.host
-        await socket.connect($request.host, port)
         await socket.send(data)
         let response = await readDataFromSocket(socket)
         echo response
         await client.send(response)
-        socket.close()
+    
+    socket.close()
 
 
 proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
