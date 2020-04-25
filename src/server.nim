@@ -45,7 +45,7 @@ proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
 
 
 proc processConnectMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
-    echo "can't parse packet" 
+    echo "can't process CONNECT method" 
 
 proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
     if request.httpMethod == "CONNECT":

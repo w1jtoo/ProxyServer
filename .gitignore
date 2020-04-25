@@ -2,3 +2,7 @@ nimcache/
 nimblecache/
 htmldocs/
 bin/
+
+# python trash zone 
+
+*/.pytest_cache
