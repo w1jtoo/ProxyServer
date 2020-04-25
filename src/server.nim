@@ -37,6 +37,7 @@ proc parseAdress*(line: string): string =
 
 proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
     ## Reads socket stored data into one string  
+    echo "recv" 
     var data = await socket.recv(512)
     result.add(data) 
     while data.len == 512:
@@ -53,7 +54,7 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
     else:
         let socket = newAsyncSocket(buffered=false)
         
-        var port = Port(8080)
+        var port = Port(80)
         if request.host.port != "":
             port = Port((int16) parseInt(request.host.port))
         
@@ -61,6 +62,7 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
         await socket.connect($request.host, port)
         await socket.send(data)
         let response = await readDataFromSocket(socket)
+        echo response
         await client.send(response)
         socket.close()
 
