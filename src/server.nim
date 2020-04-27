@@ -37,7 +37,6 @@ proc parseAdress*(line: string): string =
 
 proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
     ## Reads socket stored data into one string  
-    echo "recv" 
     var data = await socket.recv(512)
     result.add(data) 
     while data.len == 512:
@@ -54,23 +53,61 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
         port = Port((int16) parseInt(request.host.port))
 
     let socket = newAsyncSocket(buffered=false)
-    echo "http://" & $request.host
-    await socket.connect($request.host, port)
     
+    try:
+        await socket.connect($request.host, port)
+    except: 
+        echo fmt"[{request.httpMethod}] {$request.host} - can't connct"
+        echo data
+        await client.send("HTTP/1.1 404 NOT FOUND")
+        socket.close()
+        return
+    
+
+    echo fmt"[{request.httpMethod}] {$request.host}"
+
     if request.httpMethod == "CONNECT":
-        await client.send("200 OK")
+        echo "GOT CONNECT"
+        echo data
+        # RFC says that it is not nesseccery to accept the client connection 
+        await client.send("HTTP/1.1 200 Connection established\n\r\n\r")
+        # await socket.send("HTTP/1.1 200 Connection established\n\r\n\r")
+        
         while not socket.isClosed and not client.isClosed:
-            let conectData = await readDataFromSocket(client)
-            await socket.send(conectData)
+            let connectData = await readDataFromSocket(client)
+            #echo connectData
+            await socket.send(connectData)
             let response = await readDataFromSocket(socket)
+            #echo response
             await client.send(response)
+            
+
+            echo connectData
+            echo response
+            if connectData.len() == 0:
+                client.close()
+
+            if response.len() == 0:
+                socket.close()
+
+        # # if client or server closed closed connecntion with not served data then send it 
+        # if not socket.isClosed:
+        #     let connectData = await readDataFromSocket(client)
+        #     await socket.send(connectData)
+
+        # if not client.isClosed:
+        #     let connectData = await readDataFromSocket(socket)
+        #     await client.send(connectData)
+        
+        echo fmt"[{request.httpMethod}] {$request.host} - served"
+    
     else:
         await socket.send(data)
         let response = await readDataFromSocket(socket)
-        echo response
         await client.send(response)
     
-    socket.close()
+    if not socket.isClosed:
+        socket.close()
 
 
 proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
@@ -87,12 +124,9 @@ proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
         client.close()
 
     try:
-        echo "Got connection"
         asyncCheck clientHasData()
     except:
         echo getCurrentExceptionMsg()
-    finally: 
-        echo "Connection closed"
 
 
 proc serve*(this: ref ProxyServer) {.async.} =
