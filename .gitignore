@@ -3,6 +3,7 @@ nimblecache/
 htmldocs/
 bin/
 
+.vscode/
 # python trash zone 
-
+*/__pycache__/
 */.pytest_cache
