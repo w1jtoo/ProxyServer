@@ -1,4 +1,4 @@
-import asyncdispatch, asyncnet, strutils, uri, strformat
+import asyncdispatch, asyncnet, strutils, strformat
 import net, httprequets
 
 type ProxyServerOptions* = object
@@ -7,6 +7,7 @@ type ProxyServerOptions* = object
 
 type ProxyServer = object of RootObj
     options*: ProxyServerOptions
+    server: AsyncSocket
 
 proc newProxyServer* (opts: ProxyServerOptions): ref ProxyServer =
     result = new(ProxyServer)
@@ -19,10 +20,6 @@ proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
     while data.len == 512:
         data = await socket.recv(512)
         result.add(data) 
-
-
-proc processConnectMethod(data: string, client: AsyncSocket, sendClient: AsyncSocket) {.async.} =
-    echo "can't process CONNECT method" 
 
 proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
     var port = Port(80) # default http port is 80
@@ -62,7 +59,6 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
             if response.len() == 0 or connectData.len() == 0:
                 break
 
-
         # # if client or server closed closed connecntion with not served data then send it 
         if not socket.isClosed and connectData.len() != 0:
             let connectData = await readDataFromSocket(client)
@@ -72,7 +68,7 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
             let connectData = await readDataFromSocket(socket)
             await client.send(connectData)
         
-        echo fmt"[{request.httpMethod}] {$request.host} - served"
+        echo fmt"{$request.host} - served"
     
     else:
         await socket.send(data)
@@ -102,14 +98,16 @@ proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
     except:
         echo getCurrentExceptionMsg()
 
+proc init*(this: ref ProxyServer) = 
+    this.server = newAsyncSocket(buffered=false)
+    this.server.setSockOpt(OptReuseAddr, true)
+    this.server.bindAddr(this.options.listenPort, this.options.listenAddr)
+
 
 proc serve*(this: ref ProxyServer) {.async.} =
-    var server = newAsyncSocket(buffered=false)
-    server.setSockOpt(OptReuseAddr, true)
-    server.bindAddr(this.options.listenPort, this.options.listenAddr)
-    echo fmt"Started proxy server {this.options.listenAddr}:{this.options.listenPort} "
-    server.listen()
+    echo fmt"Started proxy server on {this.options.listenAddr}:{this.options.listenPort} "
+    this.server.listen()
 
     while true:
-        let client = await server.accept()
+        let client = await this.server.accept()
         asyncCheck this.processClient(client)

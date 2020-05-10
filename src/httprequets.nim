@@ -43,6 +43,5 @@ proc parseRequest*(data: string): Request =
     
     result.host = parseAdress(result.headers["Host"])
     result.hostPort = parsePort(result.headers["Host"])
-    echo result.headers["Host"]
     # if result.headers["Host"].contains(":"):
     #     result.host.port = result.headers["Host"].split(":")[1]
