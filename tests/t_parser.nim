@@ -18,7 +18,8 @@ Connection: keep-alive
 Host: ekt1.companion.tele2.ru.prod.hosts.ooklaserver.net:8080
 """ 
     let parsed = parseRequest(request)
-    doAssert parsed.host == "ekt1.companion.tele2.ru.prod.hosts.ooklaserver.net", parsed.host
-    doAssert parsed.hostPort == "8080"
-    doAssert parsed.httpMethod == "CONNECT"
-    doAssert $parsed.uri == "ekt1.companion.tele2.ru.prod.hosts.ooklaserver.net:8080"
+    check parsed.host == "ekt1.companion.tele2.ru.prod.hosts.ooklaserver.net"
+    check parsed.hostPort == "8080"
+    check parsed.httpMethod == "CONNECT"
+    check $parsed.uri == "ekt1.companion.tele2.ru.prod.hosts.ooklaserver.net:8080"
+    check parsed.httpVersion == "HTTP/1.1"

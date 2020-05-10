@@ -25,7 +25,7 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
     var port = Port(80) # default http port is 80
     
     if request.httpMethod == "CONNECT":
-        port = Port(443)
+        port = Port(443) # tls/ssl port
 
     if request.hostPort != "":
         port = Port((uint16) parseInt(request.hostPort))
@@ -37,20 +37,21 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
     except: 
         echo fmt"[{request.httpMethod}] [{port}] {request.host} - can't connct"
         echo data
-        await client.send("HTTP/1.1 404 NOT FOUND")
+        await client.send(fmt"{request.httpVersion} 404 NOT FOUND\r\n\r\n")
         socket.close()
         return
     
     echo fmt"[{request.httpMethod}] [{port}] {$request.host}"
 
     if request.httpMethod == "CONNECT":
+        # serve CONNECT method 
         # RFC says that it is not nesseccery to accept the client connection 
-        await client.send("HTTP/1.1 200 Connection established\n\r\n\r")
-        # await socket.send("HTTP/1.1 200 Connection established\n\r\n\r")
+        await client.send("{request.httpVersion} 200 Connection established\r\n\r\n")
         
         var connectData: string
         var response: string
         
+        # tunneling
         while not socket.isClosed and not client.isClosed:
             connectData = await readDataFromSocket(client)
             await socket.send(connectData)
@@ -71,6 +72,7 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
         echo fmt"{$request.host} - served"
     
     else:
+        # serve other methods
         await socket.send(data)
         let response = await readDataFromSocket(socket)
         await client.send(response)

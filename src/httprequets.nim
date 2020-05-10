@@ -6,6 +6,7 @@ type Request* = object
     uri*: Uri
     host*, hostPort*: string
     headers*: TableRef[string, string]
+    httpVersion*: string 
 
 proc newRequest*(): Request =
     result = Request()
@@ -32,6 +33,7 @@ proc parseRequest*(data: string): Request =
     let splited = data.split("\n")
     let first_line = splited[0].split(" ")
     result.httpMethod = first_line[0]
+    result.httpVersion = first_line[2]
     result.uri = parseUri(first_line[1])
     result.headers =  newTable[string, string]()
     
