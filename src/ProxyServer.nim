@@ -7,19 +7,30 @@ import server, net, asyncdispatch, os, strformat
 var p = newParser("proxy server"):
     help("Reversed http proxy server. Tested methods: GET, POST, CONNECT")
     flag("-b", "--ban-list", help="exec proxy server with ban list")
+    flag("-c", "--config", help="set settings from 'config.yaml'")
     arg("address", default="127.0.0.1",help="IPv4 of proxy server address")
     arg("port", default="8080", help="port of proxy server")
     run:
-        let port = parseInt(opts.port).Port
-        let options = ProxyServerOptions(listenAddr:opts.address, listenPort:port)
-        var proxy = newProxyServer(options)
+        let port = parseUint(opts.port).Port
+        let fname = "config.yaml"
         
+        var proxyOptions = emptyOptions()
+
+        if opts.config:
+            if fileExists(fname):
+                proxyOptions = optionsFromFile(fname)
+            else:
+                echo fmt"Can't find {fname}"
+                return
+
+        var proxy = newProxyServer(opts.address, port, proxyOptions)
+
         try:
-          proxy.init()
+            proxy.init()
         except OSError:
-          echo fmt"Can't bind address {options.listenAddr}:{options.listenPort}"
-          return
-      
+            echo fmt"Can't bind address {opts.address}:{port}"
+            return
+
         asyncCheck proxy.serve()
         runForever()
 
@@ -28,5 +39,5 @@ when isMainModule:
     try:
         p.run(commandLineParams())  
     except Exception:
-        echo p.help
-        echo getCurrentException().msg
+            echo p.help
+            echo getCurrentException().msg

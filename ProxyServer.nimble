@@ -14,3 +14,4 @@ bin           = @["ProxyServer"]
 
 requires "nim >= 1.2.0"
 requires "argparse >= 0.10.1"
+requires "yaml"

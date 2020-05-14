@@ -1,17 +1,32 @@
 import asyncdispatch, asyncnet, strutils, strformat
 import net, httprequets
+import yaml/serialization, streams
 
 type ProxyServerOptions* = object
-    listenAddr*: string
-    listenPort*: Port
+    banAddresses*: seq[string]
+
+
+proc emptyOptions* (): ref ProxyServerOptions =
+    result = new(ProxyServerOptions)
+    result.banAddresses = newSeq[string]()
+
+proc optionsFromFile*(fname: string): ref ProxyServerOptions = 
+    var s = newFileStream(fname)
+    load(s, result)
+    s.close()
 
 type ProxyServer = object of RootObj
-    options*: ProxyServerOptions
+    options*: ref ProxyServerOptions
+    listenAddr*: string
+    listenPort*: Port
     server: AsyncSocket
 
-proc newProxyServer* (opts: ProxyServerOptions): ref ProxyServer =
+
+proc newProxyServer* (adr: string, port: Port, opts: ref ProxyServerOptions): ref ProxyServer =
     result = new(ProxyServer)
     result.options = opts
+    result.listenAddr = adr
+    result.listenPort = port
 
 proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
     ## Reads socket stored data into one string  
@@ -103,11 +118,11 @@ proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
 proc init*(this: ref ProxyServer) = 
     this.server = newAsyncSocket(buffered=false)
     this.server.setSockOpt(OptReuseAddr, true)
-    this.server.bindAddr(this.options.listenPort, this.options.listenAddr)
+    this.server.bindAddr(this.listenPort, this.listenAddr)
 
 
 proc serve*(this: ref ProxyServer) {.async.} =
-    echo fmt"Started proxy server on {this.options.listenAddr}:{this.options.listenPort} "
+    echo fmt"Started proxy server on {this.listenAddr}:{this.listenPort}"
     this.server.listen()
 
     while true:
