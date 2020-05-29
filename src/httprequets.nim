@@ -7,6 +7,7 @@ type Request* = object
     host*, hostPort*: string
     headers*: TableRef[string, string]
     httpVersion*: string 
+    connection*: string 
 
 proc newRequest*(): Request =
     result = Request()
@@ -45,5 +46,11 @@ proc parseRequest*(data: string): Request =
     
     result.host = parseAdress(result.headers["Host"])
     result.hostPort = parsePort(result.headers["Host"])
+    if result.headers.hasKey("Connection"):
+         result.connection = result.headers["Connection"]
+    else:
+         result.connection = "close"
+
+
     # if result.headers["Host"].contains(":"):
     #     result.host.port = result.headers["Host"].split(":")[1]

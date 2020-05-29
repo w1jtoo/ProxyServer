@@ -36,9 +36,14 @@ proc readDataFromSocket(socket: AsyncSocket): Future[string] {.async.} =
         data = await socket.recv(512)
         result.add(data) 
 
-proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.async.} =
-    var port = Port(80) # default http port is 80
+proc processHttpMethod(data: string, request: Request, client: AsyncSocket, options: ref ProxyServerOptions) {.async.} =    
+    if options.banAddresses.contains(request.host): 
+        await client.send(fmt"{request.httpVersion} 200 OK/n/r/n/r")
+        echo fmt"[{request.httpMethod}]  {request.host}  - BLOCKED "
+        return
     
+    var port = Port(80) # default http port is 80
+      
     if request.httpMethod == "CONNECT":
         port = Port(443) # tls/ssl port
 
@@ -51,21 +56,16 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
         await socket.connect(request.host, port)
     except: 
         echo fmt"[{request.httpMethod}] [{port}] {request.host} - can't connct"
-        echo data
         await client.send(fmt"{request.httpVersion} 404 NOT FOUND\r\n\r\n")
-        socket.close()
         return
     
     echo fmt"[{request.httpMethod}] [{port}] {$request.host}"
 
     if request.httpMethod == "CONNECT":
         # serve CONNECT method 
-        # RFC says that it is not nesseccery to accept the client connection 
-        await client.send("{request.httpVersion} 200 Connection established\r\n\r\n")
-        
-        var connectData: string
+        await client.send(fmt"{request.httpVersion} 200 Connection established\r\n\r\n")
+        var connectData: string 
         var response: string
-        
         # tunneling
         while not socket.isClosed and not client.isClosed:
             connectData = await readDataFromSocket(client)
@@ -74,18 +74,14 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
             await client.send(response)
             if response.len() == 0 or connectData.len() == 0:
                 break
-
-        # # if client or server closed closed connecntion with not served data then send it 
+        # if client or server closed closed connecntion with not served data then send it 
         if not socket.isClosed and connectData.len() != 0:
             let connectData = await readDataFromSocket(client)
             await socket.send(connectData)
-
         if not client.isClosed and response.len() != 0:
             let connectData = await readDataFromSocket(socket)
             await client.send(connectData)
-        
         echo fmt"{$request.host} - served"
-    
     else:
         # serve other methods
         await socket.send(data)
@@ -93,8 +89,7 @@ proc processHttpMethod(data: string, request: Request, client: AsyncSocket) {.as
         await client.send(response)
     
     if not socket.isClosed:
-        socket.close()
-
+         socket.close()
 
 proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
     proc clientHasData() {.async.} =
@@ -105,8 +100,12 @@ proc processClient(this: ref ProxyServer, client: AsyncSocket) {.async.} =
             request = parseRequest(data)
         except:
             echo "can't parse packet" 
+            if not client.isClosed:
+                client.close()
+            return
 
-        await processHttpMethod(data, request, client)
+        await processHttpMethod(data, request, client, this.options)
+        
         if not client.isClosed:
             client.close()
 

@@ -19,6 +19,9 @@ var p = newParser("proxy server"):
         if opts.config:
             if fileExists(fname):
                 proxyOptions = optionsFromFile(fname)
+                echo "Found config:"
+                echo fmt"    file {fname}"
+                echo fmt"    with {proxyOptions.banAddresses.len} banned addresses."
             else:
                 echo fmt"Can't find {fname}"
                 return
@@ -39,5 +42,5 @@ when isMainModule:
     try:
         p.run(commandLineParams())  
     except Exception:
-            echo p.help
-            echo getCurrentException().msg
+        echo p.help
+        echo getCurrentException().msg
