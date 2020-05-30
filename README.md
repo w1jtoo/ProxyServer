@@ -20,7 +20,7 @@ cd ProxyServer
 py build.py
 ```
 
-Using only nim packet manager:
+Using only nim package manager:
 
 ``` zsh
 nimble build
